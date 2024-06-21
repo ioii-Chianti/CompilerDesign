@@ -1,31 +1,15 @@
-# Makefile for Lex and Yacc parser
+.PHONY: all clean
 
-# Compiler and tools
-LEX = flex
-YACC = bison
-CC = gcc
+all: parser
 
-# Files
-LEX_SRC = scanner.l
-YACC_SRC = parser.y
-YACC_HEADER = parser.h
-LEX_OUT = lex.yy.c
-YACC_OUT = parser.tab.c
-EXEC = parser
+parser: lex.yy.c y.tab.c
+	gcc -o parser lex.yy.c y.tab.c -lfl
 
-# Targets
-all: $(EXEC)
+lex.yy.c: scanner.l
+	flex scanner.l
 
-$(LEX_OUT): $(LEX_SRC)
-	$(LEX) $(LEX_SRC)
-
-$(YACC_OUT): $(YACC_SRC)
-	$(YACC) -d $(YACC_SRC)
-
-$(EXEC): $(LEX_OUT) $(YACC_OUT)
-	$(CC) -o $(EXEC) $(LEX_OUT) $(YACC_OUT) -ll
+y.tab.c: parser.y
+	byacc -d parser.y
 
 clean:
-	rm -f $(LEX_OUT) $(YACC_OUT) $(YACC_HEADER) $(EXEC)
-
-.PHONY: all clean
+	rm -f parser lex.yy.c y.tab.c y.tab.h

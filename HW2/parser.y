@@ -1,1026 +1,346 @@
 %{
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-int yylex();
-int yyerror();
+#define MAXLEN 50
+
+char *OPEN_SCALAR = "<scalar_decl>";
+char *CLOSE_SCALAR = "</scalar_decl>";
+char *OPEN_ARRAY = "<array_decl>";
+char *CLOSE_ARRAY = "</array_decl>";
+char *OPEN_FUNCDECL = "<func_decl>";
+char *CLOSE_FUNCDECL = "</func_decl>";
+char *OPEN_FUNCDEF = "<func_def>";
+char *CLOSE_FUNCDEF = "</func_def>";
+char *OPEN_EXPR = "<expr>";
+char *CLOSE_EXPR = "</expr>";
+char *OPEN_STMT = "<stmt>";
+char *CLOSE_STMT = "</stmt>";
+
+char *Concatenate(char *s1, char *s2, char *s3, char *s4, char *s5, char *s6, char *s7, char *s8) {
+	char *buffer = malloc(strlen(s1) + strlen(s2) + strlen(s3) + strlen(s4) + strlen(s5) + strlen(s6) + strlen(s7) + strlen(s8) + 1); 
+	sprintf(buffer, "%s%s%s%s%s%s%s%s", s1, s2, s3, s4, s5, s6, s7, s8);
+	return buffer;
+}
 
 %}
 
-%union {
-  int intVal;
-  double doubleVal;
-  char* strVal;
+%union{
+    int intVal;
+    double douVal;
+    char *strVal;
 }
-/* operator */
-%token<strVal> INCREASE DECREASE LESS_OR_EQUAL_THAN GREATER_OR_EQUAL_THAN SHIFT_LEFT SHIFT_RIGHT EQUAL NOT_EQUAL AND OR ADD MINUS 
-%token<strVal> MULTIPLY DIVIDE MOD LOGICAL_NOT BITWISE_NOT LESS_THAN GREATER_THAN BITWISE_AND BITWISE_OR BITWISE_XOR ASSIGN 
-%right ASSIGN
-%left OR
-%left AND
-%left BITWISE_OR
-%left BITWISE_XOR
-%left BITWISE_AND
-%left EQUAL NOT_EQUAL
-%left GREATER_THAN GREATER_OR_EQUAL_THAN LESS_THAN LESS_OR_EQUAL_THAN
-%left SHIFT_LEFT SHIFT_RIGHT
-%left ADD MINUS
-%left MULTIPLY DIVIDE MOD
-%nonassoc UMINUS UADD UMULTI UANDOP
-%nonassoc INCPOST DECPOST
 
-/* keyword */
-%token IF ELSE SWITCH CASE DEFAULT WHILE DO FOR RETURN BREAK CONTINUE
+%token <strVal> TYPECONST TYPESIGNED TYPEUNSIGNED TYPELONG TYPESHORT TYPEINT TYPECHAR TYPEFLOAT TYPEDOUBLE TYPEVOID
 
-/* punctuation */
-%token<strVal> SEMICOLON COMMA COLON L_PARENTHESIS R_PARENTHESIS L_BRACKET R_BRACKET L_BRACE R_BRACE
+%token <strVal> IF ELSE
+%token <strVal> SWITCH CASE DEFAULT
+%token <strVal> WHILE DO
+%token <strVal> FOR
+%token <strVal> RETURN BREAK CONTINUE
+%token <strVal> NUL
 
-/* expression */
-%type<strVal> expression primary_expression suffix_expression multidim_arr_list assignment_expression logical_or_expression logical_and_expression bitwise_or_expression
-%type<strVal> bitwise_xor_expression bitwise_and_expression equality_expression relational_expression shift_expression additive_expression multiplicative_expression specifier_qualifier_list
-%type<strVal> type_name prefix_expression argument_expression_list
+%token <strVal> ID
+%token <intVal> INT
+%token <douVal> DOUBLE
+%token <strVal> CHAR
+%token <strVal> STRING
 
-/* statement */
-%type<strVal> statement_declaration_list compound_statement return_statement continue_statement break_statement jump_statement emptiable_expression
-%type<strVal> for_statement do_while_statement while_statement iteration_statement statement_list switch_clause switch_clause_list
-%type<strVal> switch_statement if_statement selection_statement expression_statement statement
+%token <strVal> '+' '-' '*' '/' '%' '=' '!' '~' '^' '&' '|'
+%token <strVal> ':' ';' ',' '.' '[' ']' '(' ')' '{' '}'
+%token <strVal> INCREMENT DECREMENT 
+%token <strVal> LESSTHAN LESSEQUAL GREATERTHAN GREATEREQUAL EQUAL NOTEQUAL
+%token <strVal> LOGICAND LOGICOR
+%token <strVal> RIGHTSHIFT LEFTSHIFT
 
-/* declaration */
-%token<strVal> INT CHAR FLOAT DOUBLE VOID SIGNED UNSIGNED LONG SHORT CONST
-%type<strVal> declaration declaration_specifiers  type_specifier 
-%type<strVal> scalar_decl array_decl func_decl
-%type<strVal> parameter_list parameter_declaration  scalar_declarator scalar_init_declarator scalar_init_declarator_list
-%type<strVal> func_init_declarator_list
+%start Start
+%type <strVal> Start program
+%type <strVal> type
+%type <strVal> variable_declaration function_declaration function_definition
+%type <strVal> scalar_declaration array_declaration
+%type <strVal> idents ident_init ident
+%type <strVal> arrays_init array_init array array_size array_contents array_elements array_element
+%type <strVal> parameters parameter arguments
 
-/* universal */
-%type<strVal> function_definition trans_unit extern_decl func_init_declarator func_declarator func_direct_declarator array_init_declarator_list array_init_declarator array_declarator array_content array_expression
-%token<strVal> IDENTIFIER CHAR_LITERAL STRING_LITERAL NL
-%token<intVal> INT_LITERAL
-%token<doubleVal> FLOAT_LITERAL
-%type<strVal> LITERAL
-%start program
+%type <strVal> expression statement 
+%type <strVal> expr14 expr12 expr11 expr10 expr9 expr8 expr7 expr6 expr5 expr4 expr3 expr2 expr1 terminal
+%type <strVal> stmts_and_declarations if_else_statement switch_statement while_statement for_statement for_inside return_break_continue_statement compound_statement
+%type <strVal> switch_clauses switch_clause switch_clause_statements
 
 %%
 
-/* declaration */
-program:
-	trans_unit { printf("%s", $1); }
+Start: program {printf("%s", $1);}
+
+program: program variable_declaration {$$ = Concatenate($1, $2, "" , "" , "" , "" , "" , "");}
+       | program function_declaration {$$ = Concatenate($1, $2, "" , "" , "" , "" , "" , "");}
+       | program function_definition {$$ = Concatenate($1, $2, "" , "" , "" , "" , "" , "");}
+       | /* empty */ {$$ = "";}
+       ;
+
+variable_declaration: scalar_declaration {$$ = $1;}
+                    | array_declaration {$$ = $1;}
+                    ;
+
+scalar_declaration: type idents ';' {$$ = Concatenate(OPEN_SCALAR, $1, $2, $3, CLOSE_SCALAR, "" , "" , "");}
+				  ;
+
+type: TYPECONST TYPESIGNED TYPELONG TYPELONG TYPEINT {$$ = Concatenate($1, $2, $3, $4, $5, "" ,"" ,"");}
+	| TYPECONST TYPESIGNED TYPELONG TYPEINT {$$ = Concatenate($1, $2, $3, $4, "" ,"" ,"" ,"");}
+	| TYPECONST TYPESIGNED TYPESHORT TYPEINT {$$ = Concatenate($1, $2, $3, $4, "" ,"" ,"" ,"");}
+	| TYPECONST TYPESIGNED TYPEINT {$$ = Concatenate($1, $2, $3, "" ,"" ,"" ,"" ,"");}
+	| TYPECONST TYPEUNSIGNED TYPELONG TYPELONG TYPEINT {$$ = Concatenate($1, $2, $3, $4, $5, "" ,"" ,"");}
+	| TYPECONST TYPEUNSIGNED TYPELONG TYPEINT {$$ = Concatenate($1, $2, $3, $4, "" ,"" ,"" ,"");}
+	| TYPECONST TYPEUNSIGNED TYPESHORT TYPEINT {$$ = Concatenate($1, $2, $3, $4, "" ,"" ,"" ,"");}
+	| TYPECONST TYPEUNSIGNED TYPEINT {$$ = Concatenate($1, $2, $3, "" ,"" ,"" ,"" ,"");}
+	| TYPECONST TYPELONG TYPELONG TYPEINT {$$ = Concatenate($1, $2, $3, $4, "" ,"" ,"" ,"");}
+	| TYPECONST TYPELONG TYPEINT {$$ = Concatenate($1, $2, $3, "" ,"" ,"" ,"" ,"");}
+	| TYPECONST TYPESHORT TYPEINT {$$ = Concatenate($1, $2, $3, "" ,"" ,"" ,"" ,"");}
+	| TYPECONST TYPEINT {$$ = Concatenate($1, $2, "" ,"" ,"" ,"" ,"" ,"");}
+	| TYPESIGNED TYPELONG TYPELONG TYPEINT {$$ = Concatenate($1, $2, $3, $4, "" ,"" ,"" ,"");}
+	| TYPESIGNED TYPELONG TYPEINT {$$ = Concatenate($1, $2, $3, "" ,"" ,"" ,"" ,"");}
+	| TYPESIGNED TYPESHORT TYPEINT {$$ = Concatenate($1, $2, $3, "" ,"" ,"" ,"" ,"");}
+	| TYPESIGNED TYPEINT {$$ = Concatenate($1, $2, "" ,"" ,"" ,"" ,"" ,"");}
+	| TYPEUNSIGNED TYPELONG TYPELONG TYPEINT {$$ = Concatenate($1, $2, $3, $4, "" ,"" ,"" ,"");}
+	| TYPEUNSIGNED TYPELONG TYPEINT {$$ = Concatenate($1, $2, $3, "" ,"" ,"" ,"" ,"");}
+	| TYPEUNSIGNED TYPESHORT TYPEINT {$$ = Concatenate($1, $2, $3, "" ,"" ,"" ,"" ,"");}
+	| TYPEUNSIGNED TYPEINT {$$ = Concatenate($1, $2, "" ,"" ,"" ,"" ,"" ,"");}
+	| TYPELONG TYPELONG TYPEINT {$$ = Concatenate($1, $2, $3, "" ,"" ,"" ,"" ,"");}
+	| TYPELONG TYPEINT {$$ = Concatenate($1, $2, "" ,"" ,"" ,"" ,"" ,"");}
+	| TYPESHORT TYPEINT {$$ = Concatenate($1, $2, "" ,"" ,"" ,"" ,"" ,"");}
+	| TYPEINT {$$ = $1;}
+	| TYPECONST TYPESIGNED TYPELONG TYPELONG {$$ = Concatenate($1, $2, $3, $4, "" ,"" ,"" ,"");}
+	| TYPECONST TYPESIGNED TYPELONG {$$ = Concatenate($1, $2, $3, "" ,"" ,"" ,"" ,"");}
+	| TYPECONST TYPESIGNED TYPESHORT {$$ = Concatenate($1, $2, $3, "" ,"" ,"" ,"" ,"");}
+	| TYPECONST TYPESIGNED TYPECHAR {$$ = Concatenate($1, $2, $3, "" ,"" ,"" ,"" ,"");}
+	| TYPECONST TYPEUNSIGNED TYPELONG TYPELONG {$$ = Concatenate($1, $2, $3, $4, "" ,"" ,"" ,"");}
+	| TYPECONST TYPEUNSIGNED TYPELONG {$$ = Concatenate($1, $2, $3, "" ,"" ,"" ,"" ,"");}
+	| TYPECONST TYPEUNSIGNED TYPESHORT {$$ = Concatenate($1, $2, $3, "" ,"" ,"" ,"" ,"");}
+	| TYPECONST TYPEUNSIGNED TYPECHAR {$$ = Concatenate($1, $2, $3, "" ,"" ,"" ,"" ,"");}
+	| TYPECONST TYPELONG TYPELONG {$$ = Concatenate($1, $2, $3, "" ,"" ,"" ,"" ,"");}
+	| TYPECONST TYPELONG {$$ = Concatenate($1, $2, "" ,"" ,"" ,"" ,"" ,"");}
+	| TYPECONST TYPESHORT {$$ = Concatenate($1, $2, "" ,"" ,"" ,"" ,"" ,"");}
+	| TYPECONST TYPECHAR {$$ = Concatenate($1, $2, "" ,"" ,"" ,"" ,"" ,"");}
+	| TYPESIGNED TYPELONG TYPELONG {$$ = Concatenate($1, $2, $3, "" ,"" ,"" ,"" ,"");}
+	| TYPESIGNED TYPELONG {$$ = Concatenate($1, $2, "" ,"" ,"" ,"" ,"" ,"");}
+	| TYPESIGNED TYPESHORT {$$ = Concatenate($1, $2, "" ,"" ,"" ,"" ,"" ,"");}
+	| TYPESIGNED TYPECHAR {$$ = Concatenate($1, $2, "" ,"" ,"" ,"" ,"" ,"");}
+	| TYPEUNSIGNED TYPELONG TYPELONG {$$ = Concatenate($1, $2, $3, "" ,"" ,"" ,"" ,"");}
+	| TYPEUNSIGNED TYPELONG {$$ = Concatenate($1, $2, "" ,"" ,"" ,"" ,"" ,"");}
+	| TYPEUNSIGNED TYPESHORT {$$ = Concatenate($1, $2, "" ,"" ,"" ,"" ,"" ,"");}
+	| TYPEUNSIGNED TYPECHAR {$$ = Concatenate($1, $2, "" ,"" ,"" ,"" ,"" ,"");}
+	| TYPELONG TYPELONG {$$ = Concatenate($1, $2, "" ,"" ,"" ,"" ,"" ,"");}
+	| TYPELONG {$$ = $1;}
+	| TYPESHORT {$$ = $1;}
+	| TYPECHAR {$$ = $1;}
+	| TYPECONST TYPESIGNED {$$ = Concatenate($1, $2, "" ,"" ,"" ,"" ,"" ,"");}
+	| TYPECONST TYPEUNSIGNED {$$ = Concatenate($1, $2, "" ,"" ,"" ,"" ,"" ,"");}
+	| TYPECONST TYPEFLOAT {$$ = Concatenate($1, $2, "" ,"" ,"" ,"" ,"" ,"");}
+	| TYPECONST TYPEDOUBLE {$$ = Concatenate($1, $2, "" ,"" ,"" ,"" ,"" ,"");}
+	| TYPECONST TYPEVOID {$$ = Concatenate($1, $2, "" ,"" ,"" ,"" ,"" ,"");}
+	| TYPESIGNED {$$ = $1;}
+	| TYPEUNSIGNED {$$ = $1;}
+	| TYPEFLOAT {$$ = $1;}
+	| TYPEDOUBLE {$$ = $1;}
+	| TYPEVOID {$$ = $1;}
+	| TYPECONST {$$ = $1;}
 	;
 
-trans_unit:
-	extern_decl { $$ = $1; }
-    | trans_unit extern_decl {
-		$$ = (char *)malloc((strlen($1) + strlen($2)) * sizeof(char) + 1);
-		strcat($$, $1);
-		strcat($$, $2);
-    }
-	;
-
-extern_decl
-    : declaration { $$ = $1; }
-    | function_definition { $$ = $1; } 
-    ;   
-
-function_definition
-    : declaration_specifiers func_declarator L_BRACE R_BRACE { 
-        $$ = (char *)malloc(sizeof(char) * (strlen($1) + strlen($2) + 30));
-        strcpy($$, "<func_def>");
-        strcat($$, $1);
-        strcat($$, $2);
-        strcat($$, "{}");
-        strcat($$, "</func_def>");
-    }
-    | declaration_specifiers func_declarator L_BRACE statement_declaration_list R_BRACE {  
-        $$ = (char *)malloc(sizeof(char) * (strlen($1) + strlen($2) + strlen($4) + 30));
-        strcpy($$, "<func_def>");
-        strcat($$, $1);
-        strcat($$, $2);
-        strcat($$, "{");
-        strcat($$, $4);
-        strcat($$,  "}");
-        strcat($$, "</func_def>");
-    }
-    ;
-
-declaration : scalar_decl { $$ = $1; }
-            | array_decl { $$ = $1; }
-            | func_decl { $$ = $1; }
-            ;
-
-declaration_specifiers
-    : type_specifier { $$ = $1; } /* e.g. int */
-      /* e.g. signed int */
-    | type_specifier declaration_specifiers {
-		$$ = (char *)malloc((strlen($1) + strlen($2)) * sizeof(char) + 1);
-		strcat($$, $1);
-		strcat($$, $2);
-    }
-      /* i.e. const */
-    | CONST { $$ = $1; }
-      /* e.g. const int */
-    | CONST declaration_specifiers {
-		$$ = (char *)malloc((strlen($1) + strlen($2)) * sizeof(char) + 1);
-		strcat($$, $1);
-		strcat($$, $2);
-    }
-    ;
-
-// terminals: fundamental types
-type_specifier
-    : INT 
-    | CHAR
-    | FLOAT
-    | DOUBLE
-    | VOID
-    | SIGNED
-    | UNSIGNED
-    | LONG
-    | SHORT
-    ;
-LITERAL:
-      INT_LITERAL {
-        $$ = (char *) malloc (sizeof(char) * 100);
-        sprintf($$, "%d" , $1);
-      }
-    | FLOAT_LITERAL {
-        $$ = (char *) malloc (sizeof(char) * 100);
-        sprintf($$, "%f" , $1);
-    }
-    | CHAR_LITERAL {
-        $$ = $1;
-    }
-    | STRING_LITERAL {
-        $$ = $1;
-    }
-    ;
-/* scalar */
-scalar_decl : declaration_specifiers scalar_init_declarator_list SEMICOLON {
-    $$ = (char *)malloc((strlen($1) + strlen($2) + 30) * sizeof(char) + 1);
-    strcat($$, "<scalar_decl>");
-    strcat($$, $1);
-    strcat($$, $2);
-    strcat($$, ";");
-    strcat($$, "</scalar_decl>");
-}
-;
-
-scalar_init_declarator_list
-    : scalar_init_declarator { $$ = $1; }
-    | scalar_init_declarator COMMA scalar_init_declarator_list {
-        $$ = (char *)malloc((strlen($1) + strlen($3) + 2) * sizeof(char) + 1);
-        strcat($$, $1);
-        strcat($$, ",");
-        strcat($$, $3);
-    }
-    ;
-
-
-scalar_init_declarator
-    : scalar_declarator { $$ = $1; }
-    | scalar_declarator ASSIGN expression {
-        $$ = (char *)malloc((strlen($1) + strlen($3) + 2) * sizeof(char) + 1);
-        strcat($$, $1);
-        strcat($$, "=");
-        strcat($$, $3);
-    }
-    ;
-
-
-scalar_declarator
-    : IDENTIFIER { $$ = $1; }
-    | MULTIPLY IDENTIFIER {
-        $$ = (char *)malloc((strlen($2) + 2) * sizeof(char) + 1);
-        strcat($$, "*");
-        strcat($$, $2);
-    }
-    ;
-
-/* scalar */
-
-/* func */
-func_decl : declaration_specifiers func_init_declarator_list SEMICOLON {
-    $$ = (char *)malloc((strlen($1) + strlen($2) + 30) * sizeof(char) + 1);
-    strcat($$, "<func_decl>");
-    strcat($$, $1);
-    strcat($$, $2);
-    strcat($$, ";");
-    strcat($$, "</func_decl>");
-}
-;
-
-func_init_declarator_list
-    : func_init_declarator { $$ = $1; }
-    | func_init_declarator COMMA func_init_declarator_list {
-        $$ = (char *)malloc((strlen($1) + strlen($3) + 2) * sizeof(char) + 1);
-        strcat($$, $1);
-        strcat($$, ",");
-        strcat($$, $3);
-    }
-    ;
-
-
-func_init_declarator
-    : func_declarator { $$ = $1; }
-    | func_declarator ASSIGN expression {
-        $$ = (char *)malloc((strlen($1) + strlen($3) + 2) * sizeof(char) + 1);
-        strcat($$, $1);
-        strcat($$, "=");
-        strcat($$, $3);
-    }
-    ;
-
-
-func_declarator
-    : func_direct_declarator { $$ = $1; }
-    | MULTIPLY func_direct_declarator {
-        $$ = (char *)malloc((strlen($2) + 2) * sizeof(char) + 1);
-        strcat($$, "*");
-        strcat($$, $2);
-    }
-    ;
-
-
-func_direct_declarator
-    : IDENTIFIER L_PARENTHESIS R_PARENTHESIS {
-        $$ = (char *)malloc((strlen($1) + 3) * sizeof(char) + 1);
-        strcat($$, $1);
-        strcat($$, "()");
-    }
-    | IDENTIFIER L_PARENTHESIS parameter_list R_PARENTHESIS {
-        $$ = (char *)malloc((strlen($1) + strlen($3) + 3) * sizeof(char) + 1);
-        strcat($$, $1);
-        strcat($$, "(");
-        strcat($$, $3);
-        strcat($$, ")");
-    }
-    ;
-
-parameter_list
-    : parameter_declaration { $$ = $1; }
-    | parameter_declaration COMMA parameter_list { 
-        $$ = (char *)malloc((strlen($1) + strlen($3) + 2) * sizeof(char) + 1);
-        strcat($$, $1);
-        strcat($$, ",");
-        strcat($$, $3);
-    }
-    ;
-
-parameter_declaration
-    : declaration_specifiers scalar_declarator {
-
-        $$ = (char *)malloc((strlen($1) + strlen($2) + 2) * sizeof(char) + 1);
-        strcat($$, $1);
-        strcat($$, $2);
-    }
-    ;
-/* func */
-
-/* array */
-array_decl : declaration_specifiers array_init_declarator_list SEMICOLON {
-    $$ = (char *)malloc((strlen($1) + strlen($2) + 30) * sizeof(char) + 1);
-    strcat($$, "<array_decl>");
-    strcat($$, $1);
-    strcat($$, $2);
-    strcat($$, ";");
-    strcat($$, "</array_decl>");
-}
-;
-
-array_init_declarator_list
-    : array_init_declarator { $$ = $1; }
-    | array_init_declarator COMMA array_init_declarator_list { 
-        $$ = (char *)malloc((strlen($1) + strlen($3) + 2) * sizeof(char) + 1);
-        strcat($$, $1);
-        strcat($$, ",");
-        strcat($$, $3);
-    }
-    ;
-
-
-array_init_declarator
-    : array_declarator { $$ = $1; }
-    | array_declarator ASSIGN array_content { 
-        $$ = (char *)malloc((strlen($1) + strlen($3) + 2) * sizeof(char) + 1);
-        strcat($$, $1);
-        strcat($$, "=");
-        strcat($$, $3);
-    }
-    ;
-
-array_declarator
-    : IDENTIFIER L_BRACKET expression R_BRACKET {
-        $$ = (char *)malloc((strlen($1) + strlen($3) + 3) * sizeof(char) + 1);
-        strcat($$, $1);
-        strcat($$, "[");
-        strcat($$, $3);
-        strcat($$, "]");
-    }
-    | array_declarator L_BRACKET expression R_BRACKET {
-        $$ = (char *)malloc((strlen($1) + strlen($3) + 3) * sizeof(char) + 1);
-        strcat($$, $1);
-        strcat($$, "[");
-        strcat($$, $3);
-        strcat($$, "]");
-    }
-    ;
-
-array_content
-    : L_BRACE array_expression R_BRACE { 
-        $$ = (char *)malloc((strlen($2) + 3) * sizeof(char) + 1);
-        strcat($$, "{");
-        strcat($$, $2);
-        strcat($$, "}");
-    }
-    | L_BRACE array_content COMMA array_content R_BRACE {
-        $$ = (char *)malloc((strlen($2) + strlen($4) + 4) * sizeof(char) + 1);
-        strcat($$, "{");
-        strcat($$, $2);
-        strcat($$, ",");
-        strcat($$, $4);
-        strcat($$, "}");
-    }
-    | L_BRACE array_content COMMA array_expression R_BRACE {
-        $$ = (char *)malloc((strlen($2) + strlen($4) + 4) * sizeof(char) + 1);
-        strcat($$, "{");
-        strcat($$, $2);
-        strcat($$, ",");
-        strcat($$, $4);
-        strcat($$, "}");
-    }
-    | L_BRACE array_content R_BRACE {
-        $$ = (char *)malloc((strlen($2) + 3) * sizeof(char) + 1);
-        strcat($$, "{");
-        strcat($$, $2);
-        strcat($$, "}");
-    }
-    ;
-
-array_expression
-    : expression { $$ = $1; }
-    | array_expression COMMA expression {
-        $$ = (char *)malloc((strlen($1) + strlen($3) + 20) * sizeof(char) + 1);
-        //strcat($$, "<expr>");
-        strcat($$, $1);
-        strcat($$, ",");
-        strcat($$, $3);
-        //strcat($$, "</expr>");
-    }
-    ;
-/* array */
-
-/* expression */
-// highest precedence, should not be separated
-primary_expression
-    : IDENTIFIER {
-        $$ = (char *)malloc((strlen($1) + 15) * sizeof(char) + 1);
-        strcat($$, "<expr>");
-        strcat($$, $1);
-        strcat($$, "</expr>");
-    }
-    | LITERAL { 
-        $$ = (char *)malloc((strlen($1) + 15) * sizeof(char) + 1);
-        strcat($$, "<expr>");
-        strcat($$, $1);
-        strcat($$, "</expr>");
-    }
-    | L_PARENTHESIS expression R_PARENTHESIS    { 
-
-        $$ = (char *)malloc((strlen($2) + 20) * sizeof(char) + 1);
-        strcat($$, "<expr>");
-        strcat($$, "(");
-        strcat($$, $2);
-        strcat($$, ")");
-        strcat($$, "</expr>");
-    }
-    | NL {
-        $$ = (char *)malloc((strlen($1) + 15) * sizeof(char) + 1);
-        strcat($$, "<expr>");
-        strcat($$, $1);
-        strcat($$, "</expr>"); 
-    }
-
-    ;
-
-    /* Right precedence (Right to Left) */
-
-
-
-multidim_arr_list
-    : L_BRACKET expression R_BRACKET                        {  
-
-        $$ = (char *)malloc((strlen($2) + 20) * sizeof(char) + 1);
-        //strcat($$, "<expr>");
-        strcat($$, "[");
-        strcat($$, $2);
-        strcat($$, "]");
-        //strcat($$, "</expr>");
-    }
-    | L_BRACKET expression R_BRACKET multidim_arr_list      {
-        $$ = (char *)malloc((strlen($2) + strlen($4) + 20) * sizeof(char) + 1);
-        //strcat($$, "<expr>");
-        strcat($$, "[");
-        strcat($$, $2);
-        strcat($$, "]");
-        strcat($$, $4);
-        //strcat($$, "</expr>");
-    }
-    ;
-
-argument_expression_list
-    : assignment_expression  { $$ = $1; }
-    | assignment_expression COMMA argument_expression_list { 
-        $$ = (char *)malloc((strlen($1) + strlen($3) + 20) * sizeof(char) + 1);
-        //strcat($$, "<expr>");
-        strcat($$, $1);
-        strcat($$, ",");
-        strcat($$, $3);
-        //strcat($$, "</expr>");
-    }
-    ;
-
-type_name
-    : specifier_qualifier_list { $$ = $1; }
-    | specifier_qualifier_list MULTIPLY {
-        $$ = (char *)malloc((strlen($1) + strlen($2) + 4) * sizeof(char) + 1);
-        strcat($$, $1);
-        strcat($$, "*");
-    }
-    ;
-
-specifier_qualifier_list
-    : CONST { $$ = $1; }
-    | CONST specifier_qualifier_list {
-        $$ = (char *)malloc((strlen($1) + strlen($2) + 4) * sizeof(char) + 1);
-        strcat($$, $1);
-        strcat($$, $2);
-    }
-    | type_specifier { $$ = $1; }
-    | type_specifier specifier_qualifier_list {
-        $$ = (char *)malloc((strlen($1) + strlen($2) + 4) * sizeof(char) + 1);
-        strcat($$, $1);
-        strcat($$, $2);
-    }
-    ;
-
-suffix_expression
-    : primary_expression { $$ = $1; }
-    | suffix_expression INCREASE %prec INCPOST {  
-        $$ = (char *) malloc(sizeof(char) * (strlen($1) + 20));
-        strcat($$, "<expr>");
-        strcat($$, $1);
-        strcat($$, "++");
-        strcat($$, "</expr>");
-    }
-    | suffix_expression DECREASE %prec DECPOST { 
-        $$ = (char *) malloc(sizeof(char) * (strlen($1) + 20));
-        strcat($$, "<expr>");
-        strcat($$, $1);
-        strcat($$, "--");
-        strcat($$, "</expr>");
-    }
-    | suffix_expression L_PARENTHESIS R_PARENTHESIS                  { 
-        $$ = (char *) malloc(sizeof(char) * (strlen($1) + 20));
-        strcat($$, "<expr>");
-        strcat($$, $1);
-        strcat($$, "()");
-        strcat($$, "</expr>");
-    }
-    | suffix_expression L_PARENTHESIS argument_expression_list R_PARENTHESIS       { 
-        $$ = (char *)malloc((strlen($1) + strlen($3) + 20) * sizeof(char) + 1);
-        strcat($$, "<expr>");
-        strcat($$, $1);
-        strcat($$, "(");
-        strcat($$, $3);
-        strcat($$, ")");
-        strcat($$, "</expr>");
-    }
-      /* array: hw spec differs from c / c++ spec */
-    | IDENTIFIER  multidim_arr_list {
-        $$ = (char *)malloc((strlen($1) + strlen($2) + 20) * sizeof(char) + 1);
-        strcat($$, "<expr>");
-        strcat($$, $1);
-        strcat($$, $2);
-        strcat($$, "</expr>");
-    }
-    ;
-
-prefix_expression
-    : suffix_expression  { $$ = $1; }
-    | INCREASE prefix_expression              { 
-
-        $$ = (char *) malloc(sizeof(char) * (strlen($2) + 20));
-        strcat($$, "<expr>");
-        strcat($$, "++");
-        strcat($$, $2);
-        strcat($$, "</expr>");
-    }
-    | DECREASE prefix_expression              { 
-
-        $$ = (char *) malloc(sizeof(char) * (strlen($2) + 20));
-        strcat($$, "<expr>");
-        strcat($$, "--");
-        strcat($$, $2);
-        strcat($$, "</expr>");
-    }
-    | ADD prefix_expression %prec UADD  { 
-
-        $$ = (char *) malloc(sizeof(char) * (strlen($2) + 20));
-        strcat($$, "<expr>");
-        strcat($$, "+");
-        strcat($$, $2);
-        strcat($$, "</expr>");
-    }
-    | MINUS prefix_expression %prec UMINUS { 
-
-        $$ = (char *) malloc(sizeof(char) * (strlen($2) + 20));
-        strcat($$, "<expr>");
-        strcat($$, "-");
-        strcat($$, $2);
-        strcat($$, "</expr>");
-    }
-    | LOGICAL_NOT prefix_expression { 
-        $$ = (char *) malloc(sizeof(char) * (strlen($2) + 20));
-        strcat($$, "<expr>");
-        strcat($$, "!");
-        strcat($$, $2);
-        strcat($$, "</expr>");
-    }
-    | BITWISE_NOT prefix_expression { 
-        $$ = (char *) malloc(sizeof(char) * (strlen($2) + 20));
-        strcat($$, "<expr>");
-        strcat($$, "~");
-        strcat($$, $2);
-        strcat($$, "</expr>");
-    }
-    | MULTIPLY prefix_expression %prec UMULTI { 
-        $$ = (char *) malloc(sizeof(char) * (strlen($2) + 20));
-        strcat($$, "<expr>");
-        strcat($$, "*");
-        strcat($$, $2);
-        strcat($$, "</expr>");
-    }
-    | BITWISE_AND prefix_expression %prec UANDOP { 
-        $$ = (char *) malloc(sizeof(char) * (strlen($2) + 20));
-        strcat($$, "<expr>");
-        strcat($$, "&");
-        strcat($$, $2);
-        strcat($$, "</expr>");
-    }
-    | L_PARENTHESIS type_name R_PARENTHESIS prefix_expression   {
-        $$ = (char *)malloc((strlen($2) + strlen($4) + 20) * sizeof(char) + 1);
-        strcat($$, "<expr>");
-        strcat($$, "(");
-        strcat($$, $2);
-        strcat($$, ")");
-        strcat($$, $4);
-        strcat($$, "</expr>");
-    }
-    ;
-
-    /* Left precedence (Left to Right) */
-
-multiplicative_expression
-    : prefix_expression { $$ = $1; }
-    | multiplicative_expression MULTIPLY prefix_expression { 
-        $$ = (char *)malloc((strlen($1) + strlen($3) + 20) * sizeof(char) + 1);
-        strcat($$, "<expr>");
-        strcat($$, $1);
-        strcat($$, "*");
-        strcat($$, $3);
-        strcat($$, "</expr>");
-    }
-    | multiplicative_expression DIVIDE prefix_expression { 
-        $$ = (char *)malloc((strlen($1) + strlen($3) + 20) * sizeof(char) + 1);
-        strcat($$, "<expr>");
-        strcat($$, $1);
-        strcat($$, "/");
-        strcat($$, $3);
-        strcat($$, "</expr>");
-    }
-    | multiplicative_expression MOD prefix_expression { 
-        $$ = (char *)malloc((strlen($1) + strlen($3) + 20) * sizeof(char) + 1);
-        strcat($$, "<expr>");
-        strcat($$, $1);
-        strcat($$, "%");
-        strcat($$, $3);
-        strcat($$, "</expr>");
-    }
-    ;
-
-additive_expression
-    : multiplicative_expression { $$ = $1; }
-    | additive_expression ADD multiplicative_expression { 
-        $$ = (char *)malloc((strlen($1) + strlen($3) + 20) * sizeof(char) + 1);
-        strcat($$, "<expr>");
-        strcat($$, $1);
-        strcat($$, "+");
-        strcat($$, $3);
-        strcat($$, "</expr>");
-    }
-    | additive_expression MINUS multiplicative_expression { 
-        $$ = (char *)malloc((strlen($1) + strlen($3) + 20) * sizeof(char) + 1);
-        strcat($$, "<expr>");
-        strcat($$, $1);
-        strcat($$, "-");
-        strcat($$, $3);
-        strcat($$, "</expr>");
-    }
-    ;
-
-shift_expression
-    : additive_expression { $$ = $1; }
-    | shift_expression SHIFT_LEFT additive_expression { 
-        $$ = (char *)malloc((strlen($1) + strlen($3) + 20) * sizeof(char) + 1);
-        strcat($$, "<expr>");
-        strcat($$, $1);
-        strcat($$, "<<");
-        strcat($$, $3);
-        strcat($$, "</expr>");
-    }
-    | shift_expression SHIFT_RIGHT additive_expression { 
-        $$ = (char *)malloc((strlen($1) + strlen($3) + 20) * sizeof(char) + 1);
-        strcat($$, "<expr>");
-        strcat($$, $1);
-        strcat($$, ">>");
-        strcat($$, $3);
-        strcat($$, "</expr>");
-    }
-    ;
-
-relational_expression
-    : shift_expression { $$ = $1; }
-    | relational_expression LESS_THAN shift_expression { 
-        $$ = (char *)malloc((strlen($1) + strlen($3) + 20) * sizeof(char) + 1);
-        strcat($$, "<expr>");
-        strcat($$, $1);
-        strcat($$, "<");
-        strcat($$, $3);
-        strcat($$, "</expr>");
-    }
-    | relational_expression LESS_OR_EQUAL_THAN shift_expression { 
-        $$ = (char *)malloc((strlen($1) + strlen($3) + 20) * sizeof(char) + 1);
-        strcat($$, "<expr>");
-        strcat($$, $1);
-        strcat($$, "<=");
-        strcat($$, $3);
-        strcat($$, "</expr>");
-    }
-    | relational_expression GREATER_THAN shift_expression { 
-        $$ = (char *)malloc((strlen($1) + strlen($3) + 20) * sizeof(char) + 1);
-        strcat($$, "<expr>");
-        strcat($$, $1);
-        strcat($$, ">");
-        strcat($$, $3);
-        strcat($$, "</expr>");
-    }
-    | relational_expression GREATER_OR_EQUAL_THAN shift_expression     { 
-        $$ = (char *)malloc((strlen($1) + strlen($3) + 20) * sizeof(char) + 1);
-        strcat($$, "<expr>");
-        strcat($$, $1);
-        strcat($$, ">=");
-        strcat($$, $3);
-        strcat($$, "</expr>");
-    }
-    ;
-
-equality_expression
-    : relational_expression { $$ = $1; }
-    | equality_expression EQUAL relational_expression   { 
-        $$ = (char *)malloc((strlen($1) + strlen($3) + 20) * sizeof(char) + 1);
-        strcat($$, "<expr>");
-        strcat($$, $1);
-        strcat($$, "==");
-        strcat($$, $3);
-        strcat($$, "</expr>");
-    }
-    | equality_expression NOT_EQUAL relational_expression  { 
-        $$ = (char *)malloc((strlen($1) + strlen($3) + 20) * sizeof(char) + 1);
-        strcat($$, "<expr>");
-        strcat($$, $1);
-        strcat($$, "!=");
-        strcat($$, $3);
-        strcat($$, "</expr>");
-    }
-    ;
-
-bitwise_and_expression
-    : equality_expression { $$ = $1; }
-    | bitwise_and_expression BITWISE_AND equality_expression { 
-        $$ = (char *)malloc((strlen($1) + strlen($3) + 20) * sizeof(char) + 1);
-        strcat($$, "<expr>");
-        strcat($$, $1);
-        strcat($$, "&");
-        strcat($$, $3);
-        strcat($$, "</expr>");
-    }
-    ;
-
-bitwise_xor_expression
-    : bitwise_and_expression { $$ = $1; }
-    | bitwise_xor_expression BITWISE_XOR bitwise_and_expression { 
-        $$ = (char *)malloc((strlen($1) + strlen($3) + 20) * sizeof(char) + 1);
-        strcat($$, "<expr>");
-        strcat($$, $1);
-        strcat($$, "^");
-        strcat($$, $3);
-        strcat($$, "</expr>");
-    }
-    ;
-
-bitwise_or_expression
-    : bitwise_xor_expression { $$ = $1; }
-    | bitwise_or_expression BITWISE_OR bitwise_xor_expression { 
-        $$ = (char *)malloc((strlen($1) + strlen($3) + 20) * sizeof(char) + 1);
-        strcat($$, "<expr>");
-        strcat($$, $1);
-        strcat($$, "|");
-        strcat($$, $3);
-        strcat($$, "</expr>");
-    }
-    ;
-
-logical_and_expression
-    : bitwise_or_expression { $$ = $1; }
-    | logical_and_expression AND bitwise_or_expression { 
-        $$ = (char *)malloc((strlen($1) + strlen($3) + 20) * sizeof(char) + 1);
-        strcat($$, "<expr>");
-        strcat($$, $1);
-        strcat($$, "&&");
-        strcat($$, $3);
-        strcat($$, "</expr>");
-    }
-    ;
-
-logical_or_expression
-    : logical_and_expression { $$ = $1; }
-    | logical_or_expression OR logical_and_expression { 
-        $$ = (char *)malloc((strlen($1) + strlen($3) + 20) * sizeof(char) + 1);
-        strcat($$, "<expr>");
-        strcat($$, $1);
-        strcat($$, "||");
-        strcat($$, $3);
-        strcat($$, "</expr>");
-     }
-    ;
-
-
-    /* Right precedence (Right to Left) */
-
-assignment_expression
-    : logical_or_expression { $$ = $1; }
-    | logical_or_expression ASSIGN assignment_expression { 
-        $$ = (char *)malloc((strlen($1) + strlen($3) + 20) * sizeof(char) + 1);
-        strcat($$, "<expr>");
-        strcat($$, $1);
-        strcat($$, "=");
-        strcat($$, $3);
-        strcat($$, "</expr>");
-    }
-    ;
-
-// lowest precedence, includes everything
-// comma not supported
-expression
-    : assignment_expression { 
-        $$ = (char *) malloc(sizeof(char) * (strlen($1) + 2));
-       // strcat($$, "<expr>");
-        strcat($$, $1);
-       // strcat($$, "</expr>");
-    }
-    ;
-/* expression */
-
-/* statement */
-statement
-    : expression_statement {$$ = $1; }
-    | selection_statement {$$ = $1; }
-    | iteration_statement {$$ = $1; }
-    | jump_statement {$$ = $1; }
-    | compound_statement {$$ = $1; }
-    ;
-
-expression_statement
-    : expression SEMICOLON { 
-        $$ = (char *) malloc (sizeof(char) * (5 + strlen($1)));
-        strcat($$, $1);
-        strcat($$, ";");
-    }
-    ;
-
-selection_statement
-    : if_statement { $$ = $1; }
-    | switch_statement { $$ = $1; }
-    ;
-
-if_statement
-    : IF L_PARENTHESIS expression R_PARENTHESIS compound_statement { 
-        $$ = (char *) malloc (sizeof(char) * (50 + strlen($3) + strlen($5)));
-        strcat($$, "if(");
-        strcat($$, $3);
-        strcat($$, ")");
-        strcat($$, $5);
-    }
-    | IF L_PARENTHESIS expression R_PARENTHESIS compound_statement ELSE compound_statement {
-        $$ = (char *) malloc (sizeof(char) * (50 + strlen($3) + strlen($7) + strlen($5)));
-        strcat($$, "if(");
-        strcat($$, $3);
-        strcat($$, ")");
-        strcat($$, $5);
-        strcat($$, "else");
-        strcat($$, $7);
-    }
-    ;
-
-switch_statement
-    : SWITCH L_PARENTHESIS expression R_PARENTHESIS L_BRACE R_BRACE {
-        $$ = (char *) malloc (sizeof(char) * (50 + strlen($3)));
-        strcat($$, "switch(");
-        strcat($$, $3);
-        strcat($$, "){}");
-    }
-    | SWITCH L_PARENTHESIS expression R_PARENTHESIS L_BRACE switch_clause_list R_BRACE {
-        $$ = (char *) malloc (sizeof(char) * (50 + strlen($3) + strlen($6)));
-        strcat($$, "switch(");
-        strcat($$, $3);
-        strcat($$, "){");
-        strcat($$, $6);
-        strcat($$, "}");
-    }
-    ;
-
-switch_clause_list
-    : switch_clause { $$ = $1; }
-    | switch_clause switch_clause_list      {  
-        $$ = (char *) malloc (sizeof(char) * (5 + strlen($2) + strlen($1)));
-        strcat($$, $1);
-        strcat($$, $2);
-    }
-    ;
-
-switch_clause
-    : CASE expression COLON                   {  
-        $$ = (char *) malloc (sizeof(char) * (15 + strlen($2)));
-        strcat($$, "case");
-        strcat($$, $2);
-        strcat($$, ":");
-    }
-    | CASE expression COLON statement_list    {  
-        $$ = (char *) malloc (sizeof(char) * (15 + strlen($2) + strlen($4)));
-        strcat($$, "case");
-        strcat($$, $2);
-        strcat($$, ":");
-        strcat($$, $4);
-    }
-    | DEFAULT COLON                            {  
-        $$ = (char *) malloc (sizeof(char) * (15));
-        strcat($$, "default:");
-    }
-    | DEFAULT COLON statement_list            { 
-        $$ = (char *) malloc (sizeof(char) * (15 + strlen($3)));
-        strcat($$, "default:");
-        strcat($$, $3);
-    }
-    ;
-
-statement_list
-    : statement { 
-        $$ = (char *) malloc(sizeof(char) * (strlen($1) + 30));
-        strcat($$, "<stmt>");
-        strcat($$, $1);
-        strcat($$, "</stmt>");
-    }
-    | statement statement_list  { 
-        $$ = (char *) malloc(sizeof(char) * (strlen($1) + strlen($2) + 30));
-        strcat($$, "<stmt>");
-        strcat($$, $1);
-        strcat($$, "</stmt>");
-        strcat($$, $2);
-    }
-    ;
-
-iteration_statement
-    : while_statement { $$ = $1; }
-    | do_while_statement { $$ = $1; }
-    | for_statement { $$ = $1; }
-    ;
-
-while_statement
-    : WHILE L_PARENTHESIS expression R_PARENTHESIS statement {  
-        $$ = (char *) malloc (sizeof(char) * (50 + strlen($3) + strlen($5)));
-        strcat($$, "while(");
-        strcat($$, $3);
-        strcat($$, ")");
-        strcat($$, "<stmt>");
-        strcat($$, $5);
-        strcat($$, "</stmt>");
-    }
-    ;
-
-do_while_statement
-    : DO statement WHILE L_PARENTHESIS expression R_PARENTHESIS SEMICOLON { 
-        $$ = (char *) malloc (sizeof(char) * (30 + strlen($2) + strlen($5)));
-        strcat($$, "do");
-        strcat($$, "<stmt>");
-        strcat($$, $2);
-        strcat($$, "</stmt>");
-        strcat($$, "while(");
-        strcat($$, $5);
-        strcat($$, ")");
-        strcat($$, ";");
-    }
-    ;
-
-for_statement
-    : FOR L_PARENTHESIS emptiable_expression SEMICOLON emptiable_expression SEMICOLON emptiable_expression R_PARENTHESIS statement {
-        $$ = (char *) malloc (sizeof(char) * (30 + strlen($3) + strlen($5) + strlen($7) + strlen($9)));
-        strcat($$, "for");
-        strcat($$, "(");
-        strcat($$, $3);
-        strcat($$, ";");
-        strcat($$, $5);
-        strcat($$, ";");
-        strcat($$, $7);
-        strcat($$, ")");
-        strcat($$, "<stmt>");
-        strcat($$, $9);
-        strcat($$, "</stmt>");
-    }
-    ;
-
-emptiable_expression
-    : /* empty */   { $$ =""; }
-    | expression {$$ = $1; }
-    ;
-
-jump_statement
-    : break_statement {$$ = $1; }
-    | continue_statement {$$ = $1; }
-    | return_statement {$$ = $1; }
-    ;
-
-break_statement
-    : BREAK SEMICOLON     { 
-        $$ = (char *) malloc (sizeof(char) * 10);
-        strcat($$, "break;");
-    }
-    ;
-
-continue_statement
-    : CONTINUE SEMICOLON  { 
-        $$ = (char *) malloc (sizeof(char) * 10);
-        strcat($$, "continue;");
-    }
-    ;
-
-return_statement
-    : RETURN SEMICOLON                { 
-        $$ = (char *) malloc (sizeof(char) * 10);
-        strcat($$, "return;");
-    }
-    | RETURN expression SEMICOLON     {
-        $$ = (char *) malloc (sizeof(char) * (10 + strlen($2)));
-        strcat($$, "return");
-        strcat($$, $2);
-        strcat($$, ";");
-    }
-    ;
-
-compound_statement
-    : L_BRACE R_BRACE                               { 
-        $$ = (char *) malloc (sizeof(char) * 4);
-        strcat($$, "{}");
-     }
-    | L_BRACE statement_declaration_list R_BRACE    { 
-        $$ = (char *) malloc (sizeof(char) * (4 + strlen($2)));
-        strcat($$, "{");
-        strcat($$, $2);
-        strcat($$, "}");
-     }
-    ;
-
-statement_declaration_list
-    : statement {
-        $$ = (char *) malloc(sizeof(char) * (strlen($1) + 30));
-        strcat($$, "<stmt>");
-        strcat($$, $1);
-        strcat($$, "</stmt>");
-    }
-    | statement statement_declaration_list {
-        $$ = (char *) malloc(sizeof(char) * (strlen($1) + strlen($2) + 30));
-        strcat($$, "<stmt>");
-        strcat($$, $1);
-        strcat($$, "</stmt>");
-        strcat($$, $2);
-    }
-    | declaration { $$ = $1; }
-    | declaration statement_declaration_list { 
-        $$ = (char *) malloc(sizeof(char) * (strlen($1) + strlen($2) + 3));
-        strcat($$, $1);
-        strcat($$, $2);
-    }
-    ;
-/* statement */
+idents: idents ',' ident_init {$$ = Concatenate($1, $2, $3, "" ,"" ,"" ,"" ,"");}
+      | ident_init {$$ = $1;}
+      ;
+
+ident_init: ident '=' expression {$$ = Concatenate($1, $2, $3, "" ,"" ,"" ,"" ,"");}
+          | ident {$$ = $1;}
+          ;
+
+ident: '*' ID {$$ = Concatenate($1, $2, "" ,"" ,"" ,"" ,"" ,"");}
+     | ID {$$ = $1;}
+     ;
+
+array_declaration: type arrays_init ';' {$$ = Concatenate(OPEN_ARRAY, $1, $2, $3, CLOSE_ARRAY, "" ,"" ,"");}
+                 ;
+
+arrays_init: arrays_init ',' array_init {$$ = Concatenate($1, $2, $3, "" ,"" ,"" ,"" ,"");}
+           | array_init {$$ = $1;}
+           ;
+
+array_init: array '=' array_contents {$$ = Concatenate($1, $2, $3, "" ,"" ,"" ,"" ,"");}
+          | array {$$ = $1;}
+          ;
+
+array: ID array_size {$$ = Concatenate($1, $2, "" ,"" ,"" ,"" ,"" ,"");}
+     ;
+
+array_size: array_size '[' expression ']' {$$ = Concatenate($1, $2, $3, $4, "" ,"" ,"" ,"");}
+          | '[' expression ']' {$$ = Concatenate($1, $2, $3, "" ,"" ,"" ,"" ,"");}
+          ;
+
+array_contents: '{' array_elements '}' {$$ = Concatenate($1, $2, $3, "" ,"" ,"" ,"" ,"");}
+              ;
+
+array_elements: array_elements ',' array_element {$$ = Concatenate($1, $2, $3, "" ,"" ,"" ,"" ,"");}
+              | array_element {$$ = $1;}
+              ;
+
+array_element: array_contents {$$ = $1;}
+             | expression {$$ = $1;}
+             ;
+
+function_declaration: type ident '(' parameters ')' ';' {$$ = Concatenate(OPEN_FUNCDECL, $1, $2, $3, $4, $5, $6, CLOSE_FUNCDECL);}
+                    ;
+
+parameters: parameters ',' parameter {$$ = Concatenate($1, $2, $3, "" ,"" ,"" ,"" ,"");}
+          | parameter {$$ = $1;}
+          | /* empty */ {$$ = "";}
+          ;
+
+parameter: type ident {$$ = Concatenate($1, $2, "" ,"" ,"" ,"" ,"" ,"");}
+         ;
+
+function_definition: type ident '(' parameters ')' compound_statement {$$ = Concatenate(OPEN_FUNCDEF, $1, $2, $3, $4, $5, $6, CLOSE_FUNCDEF);}
+                   ;
+
+arguments: arguments ',' expression {$$ = Concatenate($1, $2, $3, "" ,"" ,"" ,"" ,"");}
+		 | expression {$$ = $1;}
+		 | /* empty */ {$$ = "";}
+		 ;
+
+expression: expr14 {$$ = Concatenate(OPEN_EXPR, $1, CLOSE_EXPR, "" ,"" ,"" ,"" ,"");}
+		  ;
+
+expr14: expr12 '=' expr14 {$$ = Concatenate(OPEN_EXPR, $1, CLOSE_EXPR, $2, OPEN_EXPR, $3, CLOSE_EXPR, "");}
+	  | expr12 {}
+	  ;
+expr12: expr12 LOGICOR expr11 {$$ = Concatenate(OPEN_EXPR, $1, CLOSE_EXPR, $2, OPEN_EXPR, $3, CLOSE_EXPR, "");}
+	  | expr11 {}
+	  ;
+expr11: expr11 LOGICAND expr10 {$$ = Concatenate(OPEN_EXPR, $1, CLOSE_EXPR, $2, OPEN_EXPR, $3, CLOSE_EXPR, "");}
+	  | expr10 {}
+	  ;
+expr10: expr10 '|' expr9 {$$ = Concatenate(OPEN_EXPR, $1, CLOSE_EXPR, $2, OPEN_EXPR, $3, CLOSE_EXPR, "");}
+	  | expr9 {}
+	  ;
+expr9: expr9 '^' expr8 {$$ = Concatenate(OPEN_EXPR, $1, CLOSE_EXPR, $2, OPEN_EXPR, $3, CLOSE_EXPR, "");}
+	 | expr8 {}
+	 ;
+expr8: expr8 '&' expr7 {$$ = Concatenate(OPEN_EXPR, $1, CLOSE_EXPR, $2, OPEN_EXPR, $3, CLOSE_EXPR, "");}
+	 | expr7 {}
+	 ;
+expr7: expr7 EQUAL expr6 {$$ = Concatenate(OPEN_EXPR, $1, CLOSE_EXPR, $2, OPEN_EXPR, $3, CLOSE_EXPR, "");}
+	 | expr7 NOTEQUAL expr6 {$$ = Concatenate(OPEN_EXPR, $1, CLOSE_EXPR, $2, OPEN_EXPR, $3, CLOSE_EXPR, "");}
+	 | expr6 {}
+	 ;
+expr6: expr6 LESSTHAN expr5 {$$ = Concatenate(OPEN_EXPR, $1, CLOSE_EXPR, $2, OPEN_EXPR, $3, CLOSE_EXPR, "");}
+	 | expr6 LESSEQUAL expr5 {$$ = Concatenate(OPEN_EXPR, $1, CLOSE_EXPR, $2, OPEN_EXPR, $3, CLOSE_EXPR, "");}
+	 | expr6 GREATERTHAN expr5 {$$ = Concatenate(OPEN_EXPR, $1, CLOSE_EXPR, $2, OPEN_EXPR, $3, CLOSE_EXPR, "");}
+	 | expr6 GREATEREQUAL expr5 {$$ = Concatenate(OPEN_EXPR, $1, CLOSE_EXPR, $2, OPEN_EXPR, $3, CLOSE_EXPR, "");}
+	 | expr5 {}
+	 ;
+expr5: expr5 LEFTSHIFT expr4 {$$ = Concatenate(OPEN_EXPR, $1, CLOSE_EXPR, $2, OPEN_EXPR, $3, CLOSE_EXPR, "");}
+	 | expr5 RIGHTSHIFT expr4 {$$ = Concatenate(OPEN_EXPR, $1, CLOSE_EXPR, $2, OPEN_EXPR, $3, CLOSE_EXPR, "");}
+	 | expr4 {}
+	 ;
+expr4: expr4 '+' expr3 {$$ = Concatenate(OPEN_EXPR, $1, CLOSE_EXPR, $2, OPEN_EXPR, $3, CLOSE_EXPR, "");}
+	 | expr4 '-' expr3 {$$ = Concatenate(OPEN_EXPR, $1, CLOSE_EXPR, $2, OPEN_EXPR, $3, CLOSE_EXPR, "");}
+	 | expr3 {}
+	 ;
+expr3: expr3 '*' expr2 {$$ = Concatenate(OPEN_EXPR, $1, CLOSE_EXPR, $2, OPEN_EXPR, $3, CLOSE_EXPR, "");}
+	 | expr3 '/' expr2 {$$ = Concatenate(OPEN_EXPR, $1, CLOSE_EXPR, $2, OPEN_EXPR, $3, CLOSE_EXPR, "");}
+	 | expr3 '%' expr2 {$$ = Concatenate(OPEN_EXPR, $1, CLOSE_EXPR, $2, OPEN_EXPR, $3, CLOSE_EXPR, "");}
+	 | expr2 {}
+	 ;
+expr2: INCREMENT expr2 {$$ = Concatenate($1, OPEN_EXPR, $2, CLOSE_EXPR, "" ,"" ,"" ,"");}
+	 | DECREMENT expr2 {$$ = Concatenate($1, OPEN_EXPR, $2, CLOSE_EXPR, "" ,"" ,"" ,"");}
+	 | '+' expr2 {$$ = Concatenate($1, OPEN_EXPR, $2, CLOSE_EXPR, "" ,"" ,"" ,"");}
+	 | '-' expr2 {$$ = Concatenate($1, OPEN_EXPR, $2, CLOSE_EXPR, "" ,"" ,"" ,"");}
+	 | '!' expr2 {$$ = Concatenate($1, OPEN_EXPR, $2, CLOSE_EXPR, "" ,"" ,"" ,"");}
+	 | '~' expr2 {$$ = Concatenate($1, OPEN_EXPR, $2, CLOSE_EXPR, "" ,"" ,"" ,"");}
+	 | '(' type ')' expr2 {$$ = Concatenate($1, $2, $3, OPEN_EXPR, $4, CLOSE_EXPR, "" ,"");}
+	 | '(' type '*' ')' expr2 {$$ = Concatenate($1, $2, $3, $4, OPEN_EXPR, $5, CLOSE_EXPR, "");}
+	 | '*' expr2 {$$ = Concatenate($1, OPEN_EXPR, $2, CLOSE_EXPR, "" ,"" ,"" ,"");}
+	 | '&' expr2 {$$ = Concatenate($1, OPEN_EXPR, $2, CLOSE_EXPR, "" ,"" ,"" ,"");}
+	 | expr1 {}
+	 ;
+expr1: expr1 INCREMENT {$$ = Concatenate(OPEN_EXPR, $1, CLOSE_EXPR, $2, "" ,"" ,"" ,"");}
+	 | expr1 DECREMENT {$$ = Concatenate(OPEN_EXPR, $1, CLOSE_EXPR, $2, "" ,"" ,"" ,"");}
+	 | expr1 '(' arguments ')' {$$ = Concatenate(OPEN_EXPR, $1, CLOSE_EXPR, $2, $3, $4, "" ,"");}
+	 | terminal {}
+	 ;
+
+terminal: ID {$$ = $1;}
+	 	| array {$$ = $1;}
+		| INT {
+			char *buffer = malloc(MAXLEN); 
+			sprintf(buffer, "%d", $1);
+			$$ = buffer;
+		}
+		| DOUBLE {
+			char *buffer = malloc(MAXLEN); 
+			sprintf(buffer, "%f", $1);
+			$$ = buffer;
+		}
+		| CHAR {$$ = $1;}
+		| STRING {$$ = $1;}
+		| NUL {$$ = "0";}
+		| '(' expression ')' {$$ = Concatenate($1, $2, $3, "" ,"" ,"" ,"" ,"");}
+		;
+
+compound_statement: '{' stmts_and_declarations '}' {$$ = Concatenate($1, $2, $3, "" ,"" ,"" ,"" ,"");}
+				  ;
+
+stmts_and_declarations: stmts_and_declarations statement {$$ = Concatenate($1, $2, "" ,"" ,"" ,"" ,"" ,"");} 
+					  | stmts_and_declarations variable_declaration {$$ = Concatenate($1, $2, "" ,"" ,"" ,"" ,"" ,"");} 
+					  | /* empty */ {$$ = "";}
+					  ;
+
+statement: expression ';' {$$ = Concatenate(OPEN_STMT, $1, $2, CLOSE_STMT, "" ,"" ,"" ,"");}
+		 | if_else_statement {$$ = Concatenate(OPEN_STMT, $1, CLOSE_STMT, "" ,"" ,"" ,"" ,"");}
+		 | switch_statement {$$ = Concatenate(OPEN_STMT, $1, CLOSE_STMT, "" ,"" ,"" ,"" ,"");}
+		 | while_statement {$$ = Concatenate(OPEN_STMT, $1, CLOSE_STMT, "" ,"" ,"" ,"" ,"");}
+		 | for_statement {$$ = Concatenate(OPEN_STMT, $1, CLOSE_STMT, "" ,"" ,"" ,"" ,"");}
+		 | return_break_continue_statement {$$ = Concatenate(OPEN_STMT, $1, CLOSE_STMT, "" ,"" ,"" ,"" ,"");}
+		 | compound_statement {$$ = Concatenate(OPEN_STMT, $1, CLOSE_STMT, "" ,"" ,"" ,"" ,"");}
+		 ;
+
+if_else_statement: IF '(' expression ')' compound_statement {$$ = Concatenate($1, $2, $3, $4, $5, "" ,"" ,"");} 
+				 | IF '(' expression ')' compound_statement ELSE compound_statement {$$ = Concatenate($1, $2, $3, $4, $5, $6, $7,"");}
+				 ;
+
+switch_statement: SWITCH '(' expression ')' '{' switch_clauses '}' {$$ = Concatenate($1, $2, $3, $4, $5, $6, $7,"");}
+				;
+
+switch_clauses: switch_clauses switch_clause {$$ = Concatenate($1, $2, "" ,"" ,"" ,"" ,"" ,"");}
+			  | /* empty */ {$$ = "";}
+			  ;
+
+switch_clause: CASE expression ':' switch_clause_statements {$$ = Concatenate($1, $2, $3, $4, "" ,"" ,"" ,"");} 
+			 | DEFAULT ':' switch_clause_statements {$$ = Concatenate($1, $2, $3, "" ,"" ,"" ,"" ,"");}
+			 ;
+
+switch_clause_statements: switch_clause_statements statement {$$ = Concatenate($1, $2, "" ,"" ,"" ,"" ,"" ,"");} 
+						| /* empty */ {$$ = "";}
+						;
+
+while_statement: WHILE '(' expression ')' statement {$$ = Concatenate($1, $2, $3, $4, $5, "" ,"" ,"");}
+			   | DO statement WHILE '(' expression ')' ';' {$$ = Concatenate($1, $2, $3, $4, $5, $6, $7,"");}
+			   ;
+
+for_statement: FOR '(' for_inside ';' for_inside ';' for_inside ')' statement {
+				char *buffer = malloc(strlen($1)+strlen($2)+strlen($3)+strlen($4)+strlen($5)+strlen($6)+strlen($7)+strlen($8)+strlen($9)+1); 
+				sprintf(buffer, "%s%s%s%s%s%s%s%s%s", $1, $2, $3, $4, $5, $6, $7, $8, $9);
+				$$ = buffer;
+			 }
+			 ;
+
+for_inside: expression {$$ = $1;}
+		  | /* empty */ {$$ = "";}
+		  ;
+
+return_break_continue_statement: RETURN expression ';' {$$ = Concatenate($1, $2, $3, "" ,"" ,"" ,"" ,"");}
+							   | RETURN ';' {$$ = Concatenate($1, $2, "" ,"" ,"" ,"" ,"" ,"");}
+							   | BREAK ';' {$$ = Concatenate($1, $2, "" ,"" ,"" ,"" ,"" ,"");}
+							   | CONTINUE ';' {$$ = Concatenate($1, $2, "" ,"" ,"" ,"" ,"" ,"");}
+							   ;
 
 %%
 
@@ -1028,6 +348,7 @@ int main(void) {
     yyparse();
     return 0;
 }
+
 int yyerror(char *s) {
     fprintf(stderr, "%s\n", s);
     return 0;
