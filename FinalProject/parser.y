@@ -5,53 +5,45 @@
 #include "code.h"
 
 FILE *f_asm;
-int currentArgumentIdx;
+int currentArgumentIndex;
 int branchCnt = 0;
-int yylex();
 
 %}
 
 %union{
     int intVal;
-    double douVal;
+    double doubleVal;
     char *strVal;
 }
 
+// demo
 %token <strVal> LOW HIGH
-
+// type
 %token <strVal> TYPECONST TYPESIGNED TYPEUNSIGNED TYPELONG TYPESHORT TYPEINT TYPECHAR TYPEFLOAT TYPEDOUBLE TYPEVOID
-
-%token <strVal> IF ELSE
-%token <strVal> SWITCH CASE DEFAULT
-%token <strVal> WHILE DO
-%token <strVal> FOR
-%token <strVal> RETURN BREAK CONTINUE
-%token <strVal> NUL
-
+// keyword
+%token <strVal> IF ELSE SWITCH CASE DEFAULT WHILE DO FOR RETURN BREAK CONTINUE NL
+// literal
 %token <strVal> ID
 %token <intVal> INT
-%token <douVal> DOUBLE
+%token <doubleVal> DOUBLE
 %token <strVal> CHAR
 %token <strVal> STRING
-
+// op
 %token <strVal> '+' '-' '*' '/' '%' '=' '!' '~' '^' '&' '|'
 %token <strVal> ':' ';' ',' '.' '[' ']' '(' ')' '{' '}'
-%token <strVal> INCREMENT DECREMENT 
-%token <strVal> LESSTHAN LESSEQUAL GREATERTHAN GREATEREQUAL EQUAL NOTEQUAL
-%token <strVal> LOGICAND LOGICOR
-%token <strVal> RIGHTSHIFT LEFTSHIFT
+%token <strVal> INCREMENT DECREMENT LESSTHAN LESSEQUAL GREATERTHAN GREATEREQUAL EQUAL NOTEQUAL RIGHTSHIFT LEFTSHIFT
 
 %start Start
 %type <strVal> Start program
 %type <strVal> type
 %type <strVal> variable_declaration function_declaration function_definition
 %type <strVal> scalar_declaration array_declaration
-%type <strVal> idents ident_init ident
+%type <strVal> identifiers identifier_init identifier
 %type <strVal> arrays_init array_init
 %type <strVal> parameters parameter arguments
 
 %type <strVal> expression statement 
-%type <strVal> expr2 expr1 terminal
+%type <strVal> expression_2 expression_1 terminal
 %type <strVal> stmts_and_declarations if_else_statement switch_statement while_statement for_statement for_inside return_break_continue_statement compound_statement
 %type <strVal> switch_clauses switch_clause switch_clause_statements
 
@@ -76,7 +68,7 @@ variable_declaration: scalar_declaration {}
                     | array_declaration {}
                     ;
 
-scalar_declaration: type idents ';' {}
+scalar_declaration: type identifiers ';' {}
 				  ;
 
 type: TYPECONST TYPESIGNED TYPELONG TYPELONG TYPEINT {}
@@ -140,22 +132,22 @@ type: TYPECONST TYPESIGNED TYPELONG TYPELONG TYPEINT {}
 	| TYPECONST {}
 	;
 
-idents: idents ',' ident_init {}
-      | ident_init {}
+identifiers: identifiers ',' identifier_init {}
+      | identifier_init {}
       ;
 
-ident_init: ident '=' expression {
-				int idx = LookUpSymbol($1);
-				fprintf(f_asm, "\tlw t0, 0(sp)\n");
-				fprintf(f_asm, "\tsw t0, %d(s0)\n", Table[idx].offset * (-4) - 48);
-			}
-          | ident {}
+identifier_init: identifier '=' expression {
+			int idx = LookUpSymbol($1);
+			fprintf(f_asm, "\tlw t0, 0(sp)\n");
+			fprintf(f_asm, "\tsw t0, %d(s0)\n", Table[idx].offset * (-4) - 48);
+		  }
+          | identifier {}
           ;
 
-ident: '*' ID {
+identifier: '*' ID {
 		InstallSymbol($2);
 		$$ = $2;
-	}
+	 }
      | ID {
 		InstallSymbol($1);
 		$$ = $1;
@@ -170,9 +162,9 @@ arrays_init: arrays_init ',' array_init {}
            ;
 
 array_init: ID '[' INT ']' {
-				InstallArray($1, $3);
-			}
-			;
+			InstallArray($1, $3);
+		  }
+		  ;
 
 function_declaration: type ID '(' parameters ')' ';' {
 						fprintf(f_asm, ".global %s\n", $2);
@@ -184,29 +176,30 @@ parameters: parameters ',' parameter {}
           | /* empty */ {$$ = "";}
           ;
 
-parameter: type ident {}
-         ;
+parameter: type identifier {}
+		 ;
+
 
 function_definition: type ID '(' parameters ')' {
 						currentScope++;
 				   		SetParameters($2);
-						CodeGeneratorFunctionHeader($2);
+						GenFunctionHeader($2);
 				   } compound_statement {
 						PopUpSymbol(currentScope);
-						CodeGeneratorFunctionBody();
+						GenFunctionEnding();
 						currentScope--;
 				   }
                    ;
 
 arguments: arguments ',' expression {
-			fprintf(f_asm, "\tlw a%d, 0(sp)\n", currentArgumentIdx);
+			fprintf(f_asm, "\tlw a%d, 0(sp)\n", currentArgumentIndex);
 			fprintf(f_asm, "\taddi sp, sp, 4\n");
-			currentArgumentIdx++;
+			currentArgumentIndex++;
 		 }
 		 | expression {
-			fprintf(f_asm, "\tlw a%d, 0(sp)\n", currentArgumentIdx);
+			fprintf(f_asm, "\tlw a%d, 0(sp)\n", currentArgumentIndex);
 			fprintf(f_asm, "\taddi sp, sp, 4\n");
-			currentArgumentIdx++;
+			currentArgumentIndex++;
 		 }
 		 | /* empty */ {$$ = "";}
 		 ;
@@ -229,10 +222,8 @@ expression: ID '=' expression {
 			int idx = LookUpSymbol($1);
 			fprintf(f_asm, "\tlw t0, 0(sp)\n");
 			fprintf(f_asm, "\taddi sp, sp, 4\n");
-
 			fprintf(f_asm, "\tlw t1, 0(sp)\n");
 			fprintf(f_asm, "\taddi sp, sp, 4\n");
-			
 			fprintf(f_asm, "\tli t2, 4\n");
 			fprintf(f_asm, "\tmul t1, t2, t1\n");
 			fprintf(f_asm, "\tsub t1, s0, t1\n");
@@ -349,25 +340,25 @@ expression: ID '=' expression {
 			fprintf(f_asm, "\tsw t0, -4(sp)\n");
 			fprintf(f_asm, "\taddi sp, sp, -4\n");
 		  }
-		  | expr2 {}
+		  | expression_2 {}
 		  ;
-
-expr2: INCREMENT expr2 {}
-	 | DECREMENT expr2 {}
-	 | '+' expr2 {
+		  
+expression_2: INCREMENT expression_2 {}
+	 | DECREMENT expression_2 {}
+	 | '+' expression_2 {
 		fprintf(f_asm, "\tlw t0, 0(sp)\n");
 		fprintf(f_asm, "\taddi sp, sp, 4\n");
 		fprintf(f_asm, "\tsw t0, -4(sp)\n");
 		fprintf(f_asm, "\taddi sp, sp, -4\n");	
 	 }
-	 | '-' expr2 {
+	 | '-' expression_2 {
 		fprintf(f_asm, "\tlw t0, 0(sp)\n");
 		fprintf(f_asm, "\taddi sp, sp, 4\n");
 		fprintf(f_asm, "\tsub t0, zero, t0\n");
 		fprintf(f_asm, "\tsw t0, -4(sp)\n");
 		fprintf(f_asm, "\taddi sp, sp, -4\n");
 	 }
-	 | '*' expr2 {
+	 | '*' expression_2 {
 		int idx = LookUpSymbol($2);
 		fprintf(f_asm, "\tlw t0, %d(s0)\n", Table[idx].offset * (-4) - 48);
 		fprintf(f_asm, "\tadd t0, t0, s0\n");
@@ -375,19 +366,19 @@ expr2: INCREMENT expr2 {}
 		fprintf(f_asm, "\tsw t0, -4(sp)\n");
 		fprintf(f_asm, "\taddi sp, sp, -4\n");
 	 }
-	 | '&' expr2 {
+	 | '&' expression_2 {
 		int idx = LookUpSymbol($2);
 		fprintf(f_asm, "\tli t0, %d\n", Table[idx].offset * (-4) - 48);
 		fprintf(f_asm, "\tsw t0, -4(sp)\n");
 		fprintf(f_asm, "\taddi sp, sp, -4\n");
 	 }
-	 | expr1 {}
+	 | expression_1 {}
 	 ;
 
-expr1: expr1 INCREMENT {}
-	 | expr1 DECREMENT {}
+expression_1: expression_1 INCREMENT {}
+	 | expression_1 DECREMENT {}
 	 | ID {
-		currentArgumentIdx = 0;
+		currentArgumentIndex = 0;
 	 } '(' arguments ')' {
 		fprintf(f_asm, "\tsw ra, -4(sp)\n");
 		fprintf(f_asm, "\taddi sp, sp, -4\n");
@@ -413,11 +404,9 @@ terminal: ID {
 			int idx = LookUpSymbol($1);
 			fprintf(f_asm, "\tlw t0, 0(sp)\n");
 			fprintf(f_asm, "\taddi sp, sp, 4\n");
-
 			fprintf(f_asm, "\tli t1, 4\n");
 			fprintf(f_asm, "\tmul t0, t1, t0\n");
 			fprintf(f_asm, "\tsub t0, s0, t0\n");
-			
 			fprintf(f_asm, "\tlw t0, %d(t0)\n", Table[idx].offset * (-4) - 48);
 			fprintf(f_asm, "\tsw t0, -4(sp)\n");
 			fprintf(f_asm, "\taddi sp, sp, -4\n");
@@ -436,7 +425,7 @@ terminal: ID {
 		| DOUBLE {}
 		| CHAR {}
 		| STRING {}
-		| NUL {}
+		| NL {}
 		;
 
 compound_statement: '{' stmts_and_declarations '}' {}
@@ -494,7 +483,7 @@ for_statement: FOR {
 			 } statement {
 				fprintf(f_asm, "\tjal zero, after%d\n", branchCnt);
 				fprintf(f_asm, "exit%d:\n", branchCnt);
-				branchCnt++;
+				branchCnt ++;
 			 }
 			 ;
 
