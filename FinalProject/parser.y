@@ -7,7 +7,7 @@
 FILE *f_asm;
 int currentArgumentIndex;
 int branchCnt = 0;
-
+int yylex();
 %}
 
 %union{
@@ -16,7 +16,7 @@ int branchCnt = 0;
     char *strVal;
 }
 
-// demo
+// demo signals
 %token <strVal> LOW HIGH
 // type
 %token <strVal> TYPECONST TYPESIGNED TYPEUNSIGNED TYPELONG TYPESHORT TYPEINT TYPECHAR TYPEFLOAT TYPEDOUBLE TYPEVOID
@@ -30,12 +30,15 @@ int branchCnt = 0;
 %token <strVal> STRING
 // op
 %token <strVal> '+' '-' '*' '/' '%' '=' '!' '~' '^' '&' '|'
+%token <strVal> INC DEC LESSTHAN LESSEQUAL GREATERTHAN GREATEREQUAL EQUAL NOTEQUAL RIGHTSHIFT LEFTSHIFT
+// puntuation
 %token <strVal> ':' ';' ',' '.' '[' ']' '(' ')' '{' '}'
-%token <strVal> INCREMENT DECREMENT LESSTHAN LESSEQUAL GREATERTHAN GREATEREQUAL EQUAL NOTEQUAL RIGHTSHIFT LEFTSHIFT
 
-%start Start
-%type <strVal> Start program
-%type <strVal> type
+%start program
+%type <strVal> program
+%type <strVal> datatype
+%type <strVal> optional_const optional_signed optional_length base_type
+
 %type <strVal> variable_declaration function_declaration function_definition
 %type <strVal> scalar_declaration array_declaration
 %type <strVal> identifiers identifier_init identifier
@@ -44,7 +47,7 @@ int branchCnt = 0;
 
 %type <strVal> expression statement 
 %type <strVal> expression_2 expression_1 terminal
-%type <strVal> stmts_and_declarations if_else_statement switch_statement while_statement for_statement for_inside return_break_continue_statement compound_statement
+%type <strVal> stmts_and_declarations if_else_statement switch_statement while_statement for_statement for_body return_break_continue_statement compound_statement
 %type <strVal> switch_clauses switch_clause switch_clause_statements
 
 %right '='
@@ -56,84 +59,46 @@ int branchCnt = 0;
 
 %%
 
-Start: program {}
-
-program: program variable_declaration {}
-       | program function_declaration {}
-       | program function_definition {}
+program: program variable_declaration
+       | program function_declaration
+       | program function_definition
        | /* empty */ {$$ = "";}
        ;
 
-variable_declaration: scalar_declaration {}
-                    | array_declaration {}
+variable_declaration: scalar_declaration
+                    | array_declaration
                     ;
 
-scalar_declaration: type identifiers ';' {}
+scalar_declaration: datatype identifiers ';'
 				  ;
 
-type: TYPECONST TYPESIGNED TYPELONG TYPELONG TYPEINT {}
-	| TYPECONST TYPESIGNED TYPELONG TYPEINT {}
-	| TYPECONST TYPESIGNED TYPESHORT TYPEINT {}
-	| TYPECONST TYPESIGNED TYPEINT {}
-	| TYPECONST TYPEUNSIGNED TYPELONG TYPELONG TYPEINT {}
-	| TYPECONST TYPEUNSIGNED TYPELONG TYPEINT {}
-	| TYPECONST TYPEUNSIGNED TYPESHORT TYPEINT {}
-	| TYPECONST TYPEUNSIGNED TYPEINT {}
-	| TYPECONST TYPELONG TYPELONG TYPEINT {}
-	| TYPECONST TYPELONG TYPEINT {}
-	| TYPECONST TYPESHORT TYPEINT {}
-	| TYPECONST TYPEINT {}
-	| TYPESIGNED TYPELONG TYPELONG TYPEINT {}
-	| TYPESIGNED TYPELONG TYPEINT {}
-	| TYPESIGNED TYPESHORT TYPEINT {}
-	| TYPESIGNED TYPEINT {}
-	| TYPEUNSIGNED TYPELONG TYPELONG TYPEINT {}
-	| TYPEUNSIGNED TYPELONG TYPEINT {}
-	| TYPEUNSIGNED TYPESHORT TYPEINT {}
-	| TYPEUNSIGNED TYPEINT {}
-	| TYPELONG TYPELONG TYPEINT {}
-	| TYPELONG TYPEINT {}
-	| TYPESHORT TYPEINT {}
-	| TYPEINT {}
-	| TYPECONST TYPESIGNED TYPELONG TYPELONG {}
-	| TYPECONST TYPESIGNED TYPELONG {}
-	| TYPECONST TYPESIGNED TYPESHORT {}
-	| TYPECONST TYPESIGNED TYPECHAR {}
-	| TYPECONST TYPEUNSIGNED TYPELONG TYPELONG {}
-	| TYPECONST TYPEUNSIGNED TYPELONG {}
-	| TYPECONST TYPEUNSIGNED TYPESHORT {}
-	| TYPECONST TYPEUNSIGNED TYPECHAR {}
-	| TYPECONST TYPELONG TYPELONG {}
-	| TYPECONST TYPELONG {}
-	| TYPECONST TYPESHORT {}
-	| TYPECONST TYPECHAR {}
-	| TYPESIGNED TYPELONG TYPELONG {}
-	| TYPESIGNED TYPELONG {}
-	| TYPESIGNED TYPESHORT {}
-	| TYPESIGNED TYPECHAR {}
-	| TYPEUNSIGNED TYPELONG TYPELONG {}
-	| TYPEUNSIGNED TYPELONG {}
-	| TYPEUNSIGNED TYPESHORT {}
-	| TYPEUNSIGNED TYPECHAR {}
-	| TYPELONG TYPELONG {}
-	| TYPELONG {}
-	| TYPESHORT {}
-	| TYPECHAR {}
-	| TYPECONST TYPESIGNED {}
-	| TYPECONST TYPEUNSIGNED {}
-	| TYPECONST TYPEFLOAT {}
-	| TYPECONST TYPEDOUBLE {}
-	| TYPECONST TYPEVOID {}
-	| TYPESIGNED {}
-	| TYPEUNSIGNED {}
-	| TYPEFLOAT {}
-	| TYPEDOUBLE {}
-	| TYPEVOID {}
-	| TYPECONST {}
-	;
+datatype: optional_const optional_signed optional_length base_type
+		;
 
-identifiers: identifiers ',' identifier_init {}
-      | identifier_init {}
+optional_const: TYPECONST
+			  | /* empty */ {$$ = "";}
+			  ;
+
+optional_signed: TYPESIGNED
+			   | TYPEUNSIGNED
+			   | /* empty */ {$$ = "";}
+			   ;
+
+optional_length: TYPELONG TYPELONG
+			   | TYPELONG
+			   | TYPESHORT
+			   | /* empty */ {$$ = "";}
+			   ;
+
+base_type: TYPEINT
+         | TYPECHAR
+         | TYPEFLOAT
+         | TYPEDOUBLE
+         | TYPEVOID
+         ;
+
+identifiers: identifiers ',' identifier_init
+      | identifier_init
       ;
 
 identifier_init: identifier '=' expression {
@@ -141,7 +106,7 @@ identifier_init: identifier '=' expression {
 			fprintf(f_asm, "\tlw t0, 0(sp)\n");
 			fprintf(f_asm, "\tsw t0, %d(s0)\n", Table[idx].offset * (-4) - 48);
 		  }
-          | identifier {}
+          | identifier
           ;
 
 identifier: '*' ID {
@@ -154,11 +119,11 @@ identifier: '*' ID {
 	 }
      ;
 
-array_declaration: type arrays_init ';' {}
+array_declaration: datatype arrays_init ';'
                  ;
 
-arrays_init: arrays_init ',' array_init {}
-           | array_init {}
+arrays_init: arrays_init ',' array_init
+           | array_init
            ;
 
 array_init: ID '[' INT ']' {
@@ -166,21 +131,21 @@ array_init: ID '[' INT ']' {
 		  }
 		  ;
 
-function_declaration: type ID '(' parameters ')' ';' {
+function_declaration: datatype ID '(' parameters ')' ';' {
 						fprintf(f_asm, ".global %s\n", $2);
 					}
                     ;
 
-parameters: parameters ',' parameter {}
-          | parameter {}
+parameters: parameters ',' parameter
+          | parameter
           | /* empty */ {$$ = "";}
           ;
 
-parameter: type identifier {}
+parameter: datatype identifier
 		 ;
 
 
-function_definition: type ID '(' parameters ')' {
+function_definition: datatype ID '(' parameters ')' {
 						currentScope++;
 				   		SetParameters($2);
 						GenFunctionHeader($2);
@@ -340,11 +305,11 @@ expression: ID '=' expression {
 			fprintf(f_asm, "\tsw t0, -4(sp)\n");
 			fprintf(f_asm, "\taddi sp, sp, -4\n");
 		  }
-		  | expression_2 {}
+		  | expression_2
 		  ;
 		  
-expression_2: INCREMENT expression_2 {}
-	 | DECREMENT expression_2 {}
+expression_2: INC expression_2
+	 | DEC expression_2
 	 | '+' expression_2 {
 		fprintf(f_asm, "\tlw t0, 0(sp)\n");
 		fprintf(f_asm, "\taddi sp, sp, 4\n");
@@ -372,11 +337,11 @@ expression_2: INCREMENT expression_2 {}
 		fprintf(f_asm, "\tsw t0, -4(sp)\n");
 		fprintf(f_asm, "\taddi sp, sp, -4\n");
 	 }
-	 | expression_1 {}
+	 | expression_1
 	 ;
 
-expression_1: expression_1 INCREMENT {}
-	 | expression_1 DECREMENT {}
+expression_1: expression_1 INC
+	 | expression_1 DEC
 	 | ID {
 		currentArgumentIndex = 0;
 	 } '(' arguments ')' {
@@ -386,7 +351,7 @@ expression_1: expression_1 INCREMENT {}
 		fprintf(f_asm, "\tlw ra, 0(sp)\n");
 		fprintf(f_asm, "\taddi sp, sp, 4\n");
 	 }
-	 | terminal {}
+	 | terminal
 	 ;
 
 terminal: ID {
@@ -421,80 +386,80 @@ terminal: ID {
 			fprintf(f_asm, "\tsw t0, -4(sp)\n");
 			fprintf(f_asm, "\taddi sp, sp, -4\n");
 		}
-		| '(' expression ')' {}
-		| DOUBLE {}
-		| CHAR {}
-		| STRING {}
-		| NL {}
+		| '(' expression ')'
+		| DOUBLE
+		| CHAR
+		| STRING
+		| NL
 		;
 
-compound_statement: '{' stmts_and_declarations '}' {}
+compound_statement: '{' stmts_and_declarations '}'
 				  ;
 
-stmts_and_declarations: stmts_and_declarations statement {} 
-					  | stmts_and_declarations variable_declaration {} 
+stmts_and_declarations: stmts_and_declarations statement 
+					  | stmts_and_declarations variable_declaration 
 					  | /* empty */ {$$ = "";}
 					  ;
 
-statement: expression ';' {}
-		 | if_else_statement {}
-		 | switch_statement {}
-		 | while_statement {}
-		 | for_statement {}
-		 | return_break_continue_statement {}
-		 | compound_statement {}
+statement: expression ';'
+		 | if_else_statement
+		 | switch_statement
+		 | while_statement
+		 | for_statement
+		 | return_break_continue_statement
+		 | compound_statement
 		 ;
 
-if_else_statement: IF '(' expression ')' compound_statement {} 
-				 | IF '(' expression ')' compound_statement ELSE compound_statement {}
+if_else_statement: IF '(' expression ')' compound_statement 
+				 | IF '(' expression ')' compound_statement ELSE compound_statement
 				 ;
 
-switch_statement: SWITCH '(' expression ')' '{' switch_clauses '}' {}
+switch_statement: SWITCH '(' expression ')' '{' switch_clauses '}'
 				;
 
-switch_clauses: switch_clauses switch_clause {}
+switch_clauses: switch_clauses switch_clause
 			  | /* empty */ {$$ = "";}
 			  ;
 
-switch_clause: CASE expression ':' switch_clause_statements {} 
-			 | DEFAULT ':' switch_clause_statements {}
+switch_clause: CASE expression ':' switch_clause_statements 
+			 | DEFAULT ':' switch_clause_statements
 			 ;
 
-switch_clause_statements: switch_clause_statements statement {} 
+switch_clause_statements: switch_clause_statements statement 
 						| /* empty */ {$$ = "";}
 						;
 
-while_statement: WHILE '(' expression ')' statement {}
-			   | DO statement WHILE '(' expression ')' ';' {}
+while_statement: WHILE '(' expression ')' statement
+			   | DO statement WHILE '(' expression ')' ';'
 			   ;
 
 for_statement: FOR {
-				fprintf(f_asm, ".global condition%d\n", branchCnt);
-				fprintf(f_asm, ".global body%d\n", branchCnt);
-				fprintf(f_asm, ".global after%d\n", branchCnt);
+				fprintf(f_asm, ".global condition_%d\n", branchCnt);
+				fprintf(f_asm, ".global body_%d\n", branchCnt);
+				fprintf(f_asm, ".global increment_%d\n", branchCnt);
 				fprintf(f_asm, ".global exit%d\n", branchCnt);
-			 } '(' for_inside ';' {
-				fprintf(f_asm, "condition%d:\n", branchCnt);
-			 } for_inside ';' {
-				fprintf(f_asm, "after%d:\n", branchCnt);
-			 } for_inside ')' {
-				fprintf(f_asm, "\tjal zero, condition%d\n", branchCnt);
-				fprintf(f_asm, "body%d:\n", branchCnt);
+			 } '(' for_body ';' {
+				fprintf(f_asm, "condition_%d:\n", branchCnt);
+			 } for_body ';' {
+				fprintf(f_asm, "increment_%d:\n", branchCnt);
+			 } for_body ')' {
+				fprintf(f_asm, "\tjal zero, condition_%d\n", branchCnt);
+				fprintf(f_asm, "body_%d:\n", branchCnt);
 			 } statement {
-				fprintf(f_asm, "\tjal zero, after%d\n", branchCnt);
+				fprintf(f_asm, "\tjal zero, increment_%d\n", branchCnt);
 				fprintf(f_asm, "exit%d:\n", branchCnt);
-				branchCnt ++;
+				branchCnt++;
 			 }
 			 ;
 
-for_inside: expression {}
+for_body: expression
 		  | /* empty */ {$$ = "";}
 		  ;
 
-return_break_continue_statement: RETURN expression ';' {}
-							   | RETURN ';' {}
-							   | BREAK ';' {}
-							   | CONTINUE ';' {}
+return_break_continue_statement: RETURN expression ';'
+							   | RETURN ';'
+							   | BREAK ';'
+							   | CONTINUE ';'
 							   ;
 
 %%

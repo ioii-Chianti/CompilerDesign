@@ -21,7 +21,7 @@ Others              .
 
 %%
 
-[ \t\n]             {}
+[ \t\n]            
 
 "LOW"               {yylval.strVal = copy(yytext); return LOW;}
 "HIGH"              {yylval.strVal = copy(yytext); return HIGH;}
@@ -58,8 +58,8 @@ Others              .
 {Char}              {yylval.strVal = copy(yytext); return CHAR;}
 {String}            {yylval.strVal = copy(yytext); return STRING;}
 
-"++"                {yylval.strVal = copy(yytext); return INCREMENT;}
-"--"                {yylval.strVal = copy(yytext); return DECREMENT;}
+"++"                {yylval.strVal = copy(yytext); return INC;}
+"--"                {yylval.strVal = copy(yytext); return DEC;}
 "<"                 {yylval.strVal = copy(yytext); return LESSTHAN;}
 "<="                {yylval.strVal = copy(yytext); return LESSEQUAL;}
 ">"                 {yylval.strVal = copy(yytext); return GREATERTHAN;}
@@ -69,17 +69,17 @@ Others              .
 ">>"                {yylval.strVal = copy(yytext); return RIGHTSHIFT;}
 "<<"                {yylval.strVal = copy(yytext); return LEFTSHIFT;}
 
-"//".*              {}
+"//".*             
 "//".*"\\\n"        {BEGIN COMMENT;}
-<COMMENT>"\\\n"     {}
+<COMMENT>"\\\n"    
 <COMMENT>"\n"       {BEGIN 0;}
 
 "/*"                {BEGIN COMMENTS;}
 <COMMENTS>"*/"      {BEGIN 0;}
-<COMMENTS>"\n"      {}
+<COMMENTS>"\n"     
 
-{Others}            {}
-<COMMENT>{Others}   {}
-<COMMENTS>{Others}  {}
+{Others}           
+<COMMENT>{Others}  
+<COMMENTS>{Others} 
 
 %%
