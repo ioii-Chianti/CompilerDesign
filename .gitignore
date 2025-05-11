@@ -1,0 +1,33 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# VSCode
+.vscode/
+
+# C
+*.out
+*.o
+*.obj
+*.exe
+*.a
+*.so
+*.dll
+
+# Assembly
+*.lst
+*.bin
+
+# Lex & Yacc
+*.output
+
+*~
+*.swp
+*.swo
+*.tmp
+*.bak
+
+# logs
+*.log
